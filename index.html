@@ -118,176 +118,194 @@
   </table>
 </div>
 
-<script>
-  let users = JSON.parse(localStorage.getItem("users")) || [];
+</body>
 
-  function toggleTheme() {
-    document.body.classList.toggle("dark-mode");
-    localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
-  }
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script>
 
-  function loadTheme() {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") {
-      document.body.classList.add("dark-mode");
-    }
-  }
-
-  function login() {
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      const today = new Date().toISOString().split('T')[0];
-      if (user.expiryDate < today) {
-        alert("ชื่อผู้ใช้หมดอายุแล้ว");
-        return;
+    var currentData = []
+    
+    const getMemberByUsernamePassword = async (username, password) => {
+      const body = {
+        username, 
+        password
       }
-      localStorage.setItem("loggedInUser", JSON.stringify(user));
-      showApp();
-    } else {
-      alert("ข้อมูลล็อกอินไม่ถูกต้อง");
+      const { data } = await axios.post('/login', body)
+      return data
     }
-  }
 
-  function showApp() {
-    document.getElementById("loginForm").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    loadTheme();
-    loadTasks();
-    loadMembers();
-  }
+    const getMembers = async () => {
+      const { data } = await axios.get('/getMembers')
+      currentData = data
+      return data
+    }
 
-  function checkLoginStatus() {
-    const user = JSON.parse(localStorage.getItem("loggedInUser"));
-    const allUsers = JSON.parse(localStorage.getItem("users")) || [];
+    function toggleTheme() {
+      document.body.classList.toggle("dark-mode");
+      localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    }
 
-    if (user) {
-      const today = new Date().toISOString().split('T')[0];
-      const exists = allUsers.find(u => u.username === user.username && u.password === user.password);
-
-      if (!exists) {
-        localStorage.removeItem("loggedInUser");
-        document.getElementById("loginForm").style.display = "block";
-        document.getElementById("app").style.display = "none";
-        return;
+    function loadTheme() {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark") {
+        document.body.classList.add("dark-mode");
       }
+    }
 
-      if (user.expiryDate >= today) {
+    async function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const user = await getMemberByUsernamePassword(username, password)
+      if (user) {
+        const today = new Date().toISOString().split('T')[0];
+        if (user.expiryDate < today) {
+          alert("ชื่อผู้ใช้หมดอายุแล้ว");
+          return;
+        }
+        localStorage.setItem("loggedInUser", JSON.stringify(user));
         showApp();
       } else {
-        localStorage.removeItem("loggedInUser");
-        document.getElementById("loginForm").style.display = "block";
-        document.getElementById("app").style.display = "none";
+        alert("ข้อมูลล็อกอินไม่ถูกต้อง");
       }
     }
-  }
 
-  function logout() {
-    localStorage.removeItem("loggedInUser");
-    location.reload();
-  }
-
-  function handleAddTask() {
-    const name = document.getElementById("nameInput").value.trim();
-    const details = document.getElementById("detailsInput").value.trim();
-    const dueDateTime = document.getElementById("dateTimeInput").value;
-    if (!name || !details || !dueDateTime) {
-      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
-      return;
+    function showApp() {
+      document.getElementById("loginForm").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      loadTheme();
+      loadTasks();
+      loadMembers();
     }
-    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-    tasks.push({ name, details, dueDateTime });
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-    renderTasks();
-    document.getElementById("nameInput").value = "";
-    document.getElementById("detailsInput").value = "";
-    document.getElementById("dateTimeInput").value = "";
-  }
 
-  function deleteTask(index) {
-    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-    tasks.splice(index, 1);
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-    renderTasks();
-  }
+    async function checkLoginStatus() {
+      const user = JSON.parse(localStorage.getItem("loggedInUser"));
+      const allUsers = await getMembers()
 
-  function renderTasks() {
-    const table = document.getElementById("taskTable");
-    table.innerHTML = "";
-    const now = new Date();
-    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      if (user) {
+        const today = new Date().toISOString().split('T')[0];
+        const exists = allUsers.find(u => u.username === user.username && u.password === user.password);
 
-    // แบ่งแถวที่หมดอายุและยังไม่หมดอายุ
-    const expiredTasks = tasks.filter(t => new Date(t.dueDateTime) < now);
-    const activeTasks = tasks.filter(t => new Date(t.dueDateTime) >= now);
-    const sortedTasks = [...expiredTasks, ...activeTasks];
+        if (!exists) {
+          localStorage.removeItem("loggedInUser");
+          document.getElementById("loginForm").style.display = "block";
+          document.getElementById("app").style.display = "none";
+          return;
+        }
 
-    sortedTasks.forEach((task, index) => {
-      const row = table.insertRow();
-      row.className = new Date(task.dueDateTime) < now ? "expired" : "";
-      row.insertCell(0).textContent = task.name;
-      row.insertCell(1).textContent = task.details;
-      const dueCell = row.insertCell(2);
-      dueCell.textContent = task.dueDateTime;
-      dueCell.setAttribute("data-date", task.dueDateTime);
+        if (user.expiryDate >= today) {
+          showApp();
+        } else {
+          localStorage.removeItem("loggedInUser");
+          document.getElementById("loginForm").style.display = "block";
+          document.getElementById("app").style.display = "none";
+        }
+      }
+    }
 
-      const deleteCell = row.insertCell(3);
-      const btn = document.createElement("button");
-      btn.textContent = "ลบ";
-      btn.className = "delete-btn";
-      btn.onclick = () => deleteTask(index);
-      deleteCell.appendChild(btn);
-    });
-  }
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      location.reload();
+    }
 
-  function addMember() {
-    const name = document.getElementById("memberNameInput").value.trim();
-    if (!name) return alert("กรุณากรอกชื่อสมาชิก");
-    let members = JSON.parse(localStorage.getItem("members")) || [];
-    members.push(name);
-    localStorage.setItem("members", JSON.stringify(members));
-    document.getElementById("memberNameInput").value = '';
-    loadMembers();
-  }
+    function handleAddTask() {
+      const name = document.getElementById("nameInput").value.trim();
+      const details = document.getElementById("detailsInput").value.trim();
+      const dueDateTime = document.getElementById("dateTimeInput").value;
+      if (!name || !details || !dueDateTime) {
+        alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+        return;
+      }
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks.push({ name, details, dueDateTime });
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTasks();
+      document.getElementById("nameInput").value = "";
+      document.getElementById("detailsInput").value = "";
+      document.getElementById("dateTimeInput").value = "";
+    }
 
-  function deleteMember(index) {
-    let members = JSON.parse(localStorage.getItem("members")) || [];
-    members.splice(index, 1);
-    localStorage.setItem("members", JSON.stringify(members));
-    loadMembers();
-  }
+    function deleteTask(index) {
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks.splice(index, 1);
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTasks();
+    }
 
-  function loadMembers() {
-    const members = JSON.parse(localStorage.getItem("members")) || [];
-    document.getElementById("memberCount").textContent = members.length;
-    const ul = document.getElementById("memberListUl");
-    ul.innerHTML = '';
-    members.forEach((m, index) => {
-      const li = document.createElement("li");
-      li.textContent = m;
+    function renderTasks() {
+      const table = document.getElementById("taskTable");
+      table.innerHTML = "";
+      const now = new Date();
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
 
-      // สร้างปุ่มลบสำหรับสมาชิกแต่ละคน
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "ลบ";
-      deleteBtn.className = "delete-btn";
-      deleteBtn.onclick = () => deleteMember(index); // ลบสมาชิกตามตำแหน่ง
-      li.appendChild(deleteBtn); // เพิ่มปุ่มลบลงใน li
+      // แบ่งแถวที่หมดอายุและยังไม่หมดอายุ
+      const expiredTasks = tasks.filter(t => new Date(t.dueDateTime) < now);
+      const activeTasks = tasks.filter(t => new Date(t.dueDateTime) >= now);
+      const sortedTasks = [...expiredTasks, ...activeTasks];
 
-      ul.appendChild(li); // เพิ่ม li ลงในรายการ
-    });
-  }
+      sortedTasks.forEach((task, index) => {
+        const row = table.insertRow();
+        row.className = new Date(task.dueDateTime) < now ? "expired" : "";
+        row.insertCell(0).textContent = task.name;
+        row.insertCell(1).textContent = task.details;
+        const dueCell = row.insertCell(2);
+        dueCell.textContent = task.dueDateTime;
+        dueCell.setAttribute("data-date", task.dueDateTime);
 
-  function loadTasks() {
-    renderTasks();
-  }
+        const deleteCell = row.insertCell(3);
+        const btn = document.createElement("button");
+        btn.textContent = "ลบ";
+        btn.className = "delete-btn";
+        btn.onclick = () => deleteTask(index);
+        deleteCell.appendChild(btn);
+      });
+    }
 
-  // เรียกใช้เมื่อโหลดหน้า
-  checkLoginStatus();
+    function addMember() {
+      const name = document.getElementById("memberNameInput").value.trim();
+      if (!name) return alert("กรุณากรอกชื่อสมาชิก");
+      let members = JSON.parse(localStorage.getItem("members")) || [];
+      members.push(name);
+      localStorage.setItem("members", JSON.stringify(members));
+      document.getElementById("memberNameInput").value = '';
+      loadMembers();
+    }
 
-  // ตรวจสอบแถบหมดอายุทุก 1 วิ
-  setInterval(renderTasks, 1000);
-</script>
+    function deleteMember(index) {
+      let members = JSON.parse(localStorage.getItem("members")) || [];
+      members.splice(index, 1);
+      localStorage.setItem("members", JSON.stringify(members));
+      loadMembers();
+    }
 
-</body>
+    function loadMembers() {
+      const members = JSON.parse(localStorage.getItem("members")) || [];
+      document.getElementById("memberCount").textContent = members.length;
+      const ul = document.getElementById("memberListUl");
+      ul.innerHTML = '';
+      members.forEach((m, index) => {
+        const li = document.createElement("li");
+        li.textContent = m;
+
+        // สร้างปุ่มลบสำหรับสมาชิกแต่ละคน
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "ลบ";
+        deleteBtn.className = "delete-btn";
+        deleteBtn.onclick = () => deleteMember(index); // ลบสมาชิกตามตำแหน่ง
+        li.appendChild(deleteBtn); // เพิ่มปุ่มลบลงใน li
+
+        ul.appendChild(li); // เพิ่ม li ลงในรายการ
+      });
+    }
+
+    function loadTasks() {
+      renderTasks();
+    }
+
+    // เรียกใช้เมื่อโหลดหน้า
+    checkLoginStatus();
+
+    // ตรวจสอบแถบหมดอายุทุก 1 วิ
+    setInterval(renderTasks, 1000);
+  </script>
+
 </html>
